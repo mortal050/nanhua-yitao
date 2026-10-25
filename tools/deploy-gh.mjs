@@ -157,12 +157,23 @@ git(['push', '-u', authedRemote, 'main', '--force'])
 console.log('✅ 源码已推送到 main 分支')
 
 /** 3. 构建 + 推送 gh-pages */
-console.log('🔨 构建生产版本（base = /' + REPO + '/）…')
-execFileSync(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['run', 'build'], {
-  cwd: ROOT,
-  stdio: 'inherit',
-  env: { ...process.env, BASE_PATH: `/${REPO}/` },
-})
+console.log(`🔨 构建生产版本（base = /${REPO}/）…`)
+const viteBin = resolve(ROOT, 'node_modules', 'vite', 'bin', 'vite.js')
+if (existsSync(viteBin)) {
+  // 直接用 node 跑 vite，避免 Windows 上 spawn npm.cmd 的 EINVAL 问题
+  execFileSync(process.execPath, [viteBin, 'build'], {
+    cwd: ROOT,
+    stdio: 'inherit',
+    env: { ...process.env, BASE_PATH: `/${REPO}/` },
+  })
+} else {
+  execFileSync(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['run', 'build'], {
+    cwd: ROOT,
+    stdio: 'inherit',
+    shell: process.platform === 'win32',
+    env: { ...process.env, BASE_PATH: `/${REPO}/` },
+  })
+}
 
 rmSync(TMP, { recursive: true, force: true })
 mkdirSync(TMP, { recursive: true })
