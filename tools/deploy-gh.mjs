@@ -12,7 +12,7 @@
  *   3. 以 BASE_PATH=/<仓库名>/ 构建，把 dist 作为 gh-pages 分支推送
  *   4. 调用 GitHub API 打开 Pages，输出最终公网地址
  */
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
@@ -36,6 +36,50 @@ const headers = {
   'Content-Type': 'application/json',
 }
 
+/** Node 的 git 命令统一带上：关闭 schannel 吊销检查（国内网络经常因吊销列表不可达而报 CRYPT_E_NO_REVOCATION_CHECK） */
+const GIT_CONFIG_ARGS = ['-c', 'http.schannelCheckRevoke=false']
+const GIT_ENV = { ...process.env, GIT_TERMINAL_PROMPT: '0' }
+
+// ---------------------------------------------------------------------------
+// TLS 自愈：部分安全软件 / 代理会做 HTTPS 拦截，Node 默认 CA 会报
+// UNABLE_TO_VERIFY_LEAF_SIGNATURE。Node 24 支持 --use-system-ca 改用系统证书库，
+// 这里先探测一次，失败就自动带着该参数重新执行自己。
+// ---------------------------------------------------------------------------
+const SYSTEM_CA_FLAG = '--use-system-ca'
+
+async function tlsProbe() {
+  try {
+    await fetch(`${API}/rate_limit`, { headers: { 'User-Agent': 'nanhua-yitao-deploy' } })
+    return 'ok'
+  } catch (err) {
+    const code = err?.cause?.code || err?.code || ''
+    return String(code).includes('CERTIFICATE') || String(code).includes('VERIFY') ? 'tls' : 'net'
+  }
+}
+
+if (!process.execArgv.includes(SYSTEM_CA_FLAG)) {
+  const probe = await tlsProbe()
+  if (probe === 'tls') {
+    console.log('🔐 检测到本机 HTTPS 证书校验失败（通常是安全软件 / 代理在做 TLS 拦截）')
+    console.log('   正在自动改用系统证书库重试：node --use-system-ca …\n')
+    const retry = spawnSync(process.execPath, [SYSTEM_CA_FLAG, fileURLToPath(import.meta.url)], {
+      stdio: 'inherit',
+      env: process.env,
+      cwd: ROOT,
+    })
+    process.exit(retry.status ?? 1)
+  } else if (probe === 'net') {
+    console.error('❌ 无法连接 api.github.com，请检查网络（是否开了代理 / 需要科学上网）')
+    process.exit(1)
+  }
+} else {
+  const probe = await tlsProbe()
+  if (probe !== 'ok') {
+    console.error('❌ 即使使用系统证书库仍无法连接 GitHub API，请检查网络或代理设置')
+    process.exit(1)
+  }
+}
+
 async function api(path, options = {}) {
   const res = await fetch(API + path, { headers, ...options })
   const text = await res.text()
@@ -49,7 +93,12 @@ async function api(path, options = {}) {
 }
 
 function git(args, cwd = ROOT, opts = {}) {
-  return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: opts.silent ? 'pipe' : 'inherit' })
+  return execFileSync('git', [...GIT_CONFIG_ARGS, ...args], {
+    cwd,
+    encoding: 'utf8',
+    env: GIT_ENV,
+    stdio: opts.silent ? 'pipe' : 'inherit',
+  })
 }
 
 /** 1. 账号 + 仓库 */
