@@ -11,8 +11,12 @@
 
 | 类型 | 地址 |
 | --- | --- |
-| 在线站点（GitHub Pages） | `https://<你的GitHub用户名>.github.io/nanhua-yitao/` |
-| 源码仓库 | `https://github.com/<你的GitHub用户名>/nanhua-yitao` |
+| 🌐 **在线站点（GitHub Pages）** | **<https://mortal050.github.io/nanhua-yitao/>** |
+| 源码仓库 | <https://github.com/mortal050/nanhua-yitao> |
+| 构建产物分支 | `gh-pages` |
+
+已实测：首页 / 市场 / 详情 / 实验室 / 关于 5 条路由线上访问均正常，静态资源可加载，
+控制台 0 错误、0 失败请求（用 `SIM_BASE=https://mortal050.github.io/nanhua-yitao/ node tools/verify-subpath.mjs` 复核）。
 
 本地运行：
 
