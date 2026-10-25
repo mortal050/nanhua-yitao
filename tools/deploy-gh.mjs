@@ -84,6 +84,9 @@ const authedRemote = `https://x-access-token:${TOKEN}@github.com/${login}/${REPO
 
 /** 2. 推送源码 */
 if (!existsSync(resolve(ROOT, '.git'))) git(['init', '-b', 'main'])
+// 为这个仓库设置提交者信息（不影响全局 git 配置）
+git(['config', 'user.name', '吴星雨'], ROOT, { silent: true })
+git(['config', 'user.email', `${login}@users.noreply.github.com`], ROOT, { silent: true })
 git(['add', '-A'])
 try {
   git(['commit', '-m', 'feat: 南华易淘校园二手交易平台（Vue 3 课程实验）'], ROOT, { silent: true })
