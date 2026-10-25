@@ -36,8 +36,15 @@ const headers = {
   'Content-Type': 'application/json',
 }
 
-/** Node 的 git 命令统一带上：关闭 schannel 吊销检查（国内网络经常因吊销列表不可达而报 CRYPT_E_NO_REVOCATION_CHECK） */
+/**
+ * Node 的 git 命令统一带上这两个参数：
+ *   http.schannelCheckRevoke=false —— 国内网络常常连不上证书吊销列表，会报 CRYPT_E_NO_REVOCATION_CHECK
+ *   http.sslVerify=false           —— 部分安全软件 / 代理会做 HTTPS 拦截，Git 用的 schannel 会校验失败
+ * 它们只影响本脚本执行的 git 命令，不会改动你的全局 git 配置。
+ * 若你的网络环境正常、想恢复严格校验，设置环境变量 GIT_STRICT_TLS=1 即可去掉后一个参数。
+ */
 const GIT_CONFIG_ARGS = ['-c', 'http.schannelCheckRevoke=false']
+if (process.env.GIT_STRICT_TLS !== '1') GIT_CONFIG_ARGS.push('-c', 'http.sslVerify=false')
 const GIT_ENV = { ...process.env, GIT_TERMINAL_PROMPT: '0' }
 
 // ---------------------------------------------------------------------------
